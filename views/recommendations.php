@@ -11,27 +11,45 @@ if (!isset($_SESSION['user_id'])) {
 
 // Get user's energy usage
 $user_id = $_SESSION['user_id'];
-$energy_query = pg_query_params($conn, "SELECT SUM(kwh_consumed) AS total_energy FROM energy_usage WHERE user_id = $1", [$user_id]);
-$energy_data = pg_fetch_assoc($energy_query);
+$energy_stmt = mysqli_prepare($conn, "SELECT SUM(kwh_consumed) AS total_energy FROM energy_usage WHERE user_id = ?");
+mysqli_stmt_bind_param($energy_stmt, "i", $user_id);
+mysqli_stmt_execute($energy_stmt);
+$energy_result = mysqli_stmt_get_result($energy_stmt);
+$energy_data = mysqli_fetch_assoc($energy_result);
+mysqli_stmt_close($energy_stmt);
 $total_energy = $energy_data['total_energy'] ?? 0;
 
 // Get user's transport usage
-$transport_query = pg_query_params($conn, 
+$transport_stmt = mysqli_prepare($conn, 
     "SELECT tm.name, ut.distance_km, tm.carbon_emission
      FROM user_transport ut 
      JOIN transport_modes tm ON ut.transport_id = tm.id 
-     WHERE ut.user_id = $1", [$user_id]
+     WHERE ut.user_id = ?"
 );
-$transport_data = pg_fetch_all($transport_query) ?: [];
+mysqli_stmt_bind_param($transport_stmt, "i", $user_id);
+mysqli_stmt_execute($transport_stmt);
+$transport_result = mysqli_stmt_get_result($transport_stmt);
+$transport_data = [];
+while ($row = mysqli_fetch_assoc($transport_result)) {
+    $transport_data[] = $row;
+}
+mysqli_stmt_close($transport_stmt);
 
 // Get user's appliances
-$appliance_query = pg_query_params($conn, 
+$appliance_stmt = mysqli_prepare($conn, 
     "SELECT a.name, ua.usage_hours, a.power_rating
      FROM user_appliances ua 
      JOIN appliances a ON ua.appliance_id = a.id 
-     WHERE ua.user_id = $1", [$user_id]
+     WHERE ua.user_id = ?"
 );
-$appliance_data = pg_fetch_all($appliance_query) ?: [];
+mysqli_stmt_bind_param($appliance_stmt, "i", $user_id);
+mysqli_stmt_execute($appliance_stmt);
+$appliance_result = mysqli_stmt_get_result($appliance_stmt);
+$appliance_data = [];
+while ($row = mysqli_fetch_assoc($appliance_result)) {
+    $appliance_data[] = $row;
+}
+mysqli_stmt_close($appliance_stmt);
 
 // Determine high-usage appliances
 $high_usage_appliances = [];

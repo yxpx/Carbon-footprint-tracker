@@ -11,8 +11,12 @@ if (!isset($_SESSION['user_id'])) {
 
 // Fetch user data
 $user_id = $_SESSION['user_id'];
-$result = pg_query_params($conn, "SELECT name, email, household_size FROM users WHERE id = $1", [$user_id]);
-$user = pg_fetch_assoc($result);
+$stmt = mysqli_prepare($conn, "SELECT name, email, household_size FROM users WHERE id = ?");
+mysqli_stmt_bind_param($stmt, "i", $user_id);
+mysqli_stmt_execute($stmt);
+$result = mysqli_stmt_get_result($stmt);
+$user = mysqli_fetch_assoc($result);
+mysqli_stmt_close($stmt);
 $household_size = max(1, intval($user['household_size'] ?? 1)); // Ensure at least 1
 
 // Determine time period (default to 30 days if not specified)
@@ -21,71 +25,86 @@ $period = $_GET['period'] ?? '30days';
 // Set the date range based on the selected period
 switch ($period) {
     case '7days':
-        $dateInterval = "7 days";
+        $dateInterval = "7";
         $chartLabel = "Last 7 Days";
         break;
     case '90days':
-        $dateInterval = "90 days";
+        $dateInterval = "90";
         $chartLabel = "Last 3 Months";
         break;
     case 'year':
-        $dateInterval = "1 year";
+        $dateInterval = "365";
         $chartLabel = "Last Year";
         break;
     default:
         $period = '30days'; // Set default
-        $dateInterval = "30 days";
+        $dateInterval = "30";
         $chartLabel = "Last 30 Days";
 }
 
 // Fetch energy usage summary
-$energy_query = pg_query_params($conn, "SELECT SUM(kwh_consumed) AS total_energy FROM energy_usage WHERE user_id = $1", [$user_id]);
-$energy_data = pg_fetch_assoc($energy_query);
+$energy_stmt = mysqli_prepare($conn, "SELECT SUM(kwh_consumed) AS total_energy FROM energy_usage WHERE user_id = ?");
+mysqli_stmt_bind_param($energy_stmt, "i", $user_id);
+mysqli_stmt_execute($energy_stmt);
+$energy_result = mysqli_stmt_get_result($energy_stmt);
+$energy_data = mysqli_fetch_assoc($energy_result);
+mysqli_stmt_close($energy_stmt);
 $total_energy = $energy_data['total_energy'] ?? 0;
 
 // Get Energy Usage Data for the selected period
-$energyTrendQuery = pg_query_params($conn, 
+$energyTrendQuery = mysqli_prepare($conn, 
     "SELECT date, SUM(kwh_consumed) as total 
      FROM energy_usage 
-     WHERE user_id = $1 AND date >= CURRENT_DATE - INTERVAL '$dateInterval'
+     WHERE user_id = ? AND date >= DATE_SUB(CURRENT_DATE, INTERVAL ? DAY)
      GROUP BY date 
-     ORDER BY date ASC", 
-    [$user_id]
+     ORDER BY date ASC"
 );
+mysqli_stmt_bind_param($energyTrendQuery, "ii", $user_id, $dateInterval);
+mysqli_stmt_execute($energyTrendQuery);
+$energyTrendResult = mysqli_stmt_get_result($energyTrendQuery);
 
 $energyDates = [];
 $energyValues = [];
-while ($row = pg_fetch_assoc($energyTrendQuery)) {
+while ($row = mysqli_fetch_assoc($energyTrendResult)) {
     // Format date as 'Mon DD' (e.g., Jan 15)
     $energyDates[] = date('M d', strtotime($row['date']));
     $energyValues[] = $row['total'];
 }
 
 // Fetch appliances used
-$appliance_query = pg_query_params($conn, 
+$appliance_stmt = mysqli_prepare($conn, 
     "SELECT a.name, ua.usage_hours 
      FROM user_appliances ua 
      JOIN appliances a ON ua.appliance_id = a.id 
-     WHERE ua.user_id = $1", [$user_id]
+     WHERE ua.user_id = ?"
 );
-$appliances = pg_fetch_all($appliance_query) ?: [];
+mysqli_stmt_bind_param($appliance_stmt, "i", $user_id);
+mysqli_stmt_execute($appliance_stmt);
+$appliance_result = mysqli_stmt_get_result($appliance_stmt);
+$appliances = mysqli_fetch_all($appliance_result) ?: [];
 
 // Fetch carbon footprint from energy usage
-$carbon_energy_query = pg_query_params($conn, 
+$carbon_energy_stmt = mysqli_prepare($conn, 
     "SELECT SUM(kwh_consumed * 0.92) AS total_carbon 
      FROM energy_usage 
-     WHERE user_id = $1", [$user_id] // 0.92 kg CO2 per kWh
+     WHERE user_id = ?"
 );
-$carbon_energy = pg_fetch_assoc($carbon_energy_query)['total_carbon'] ?? 0;
+mysqli_stmt_bind_param($carbon_energy_stmt, "i", $user_id);
+mysqli_stmt_execute($carbon_energy_stmt);
+$carbon_energy_result = mysqli_stmt_get_result($carbon_energy_stmt);
+$carbon_energy = mysqli_fetch_assoc($carbon_energy_result)['total_carbon'] ?? 0;
 
 // Fetch carbon footprint from transport usage
-$carbon_transport_query = pg_query_params($conn, 
+$carbon_transport_stmt = mysqli_prepare($conn, 
     "SELECT SUM(tm.carbon_emission * ut.distance_km) AS transport_carbon 
      FROM user_transport ut 
      JOIN transport_modes tm ON ut.transport_id = tm.id 
-     WHERE ut.user_id = $1", [$user_id]
+     WHERE ut.user_id = ?"
 );
-$carbon_transport = pg_fetch_assoc($carbon_transport_query)['transport_carbon'] ?? 0;
+mysqli_stmt_bind_param($carbon_transport_stmt, "i", $user_id);
+mysqli_stmt_execute($carbon_transport_stmt);
+$carbon_transport_result = mysqli_stmt_get_result($carbon_transport_stmt);
+$carbon_transport = mysqli_fetch_assoc($carbon_transport_result)['transport_carbon'] ?? 0;
 
 $total_carbon = $carbon_energy + $carbon_transport;
 
@@ -191,7 +210,7 @@ $avg_carbon_per_person = $avg_carbon_footprint / 2.5;
                         <li>Consider using energy-efficient appliances to reduce your electricity consumption.</li>
                         <li>Turn off lights and unplug devices when not in use.</li>
                     <?php else: ?>
-                        <li>Great job keeping your energy usage below average! Consider installing solar panels to further reduce your carbon footprint.</li>
+                        <li>Consider installing solar panels to further reduce your carbon footprint.</li>
                     <?php endif; ?>
                     
                     <?php if ($carbon_transport > ($avg_carbon_footprint * 0.3)): ?>

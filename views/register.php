@@ -23,29 +23,38 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $_SESSION['error'] = "Passwords do not match.";
     } else {
         // Check if email already exists
-        $check_query = "SELECT id FROM users WHERE email = $1";
-        $check_result = pg_query_params($conn, $check_query, [$email]);
+        $check_query = "SELECT id FROM users WHERE email = ?";
+        $check_stmt = mysqli_prepare($conn, $check_query);
+        mysqli_stmt_bind_param($check_stmt, "s", $email);
+        mysqli_stmt_execute($check_stmt);
+        mysqli_stmt_store_result($check_stmt);
         
-        if (pg_num_rows($check_result) > 0) {
+        if (mysqli_stmt_num_rows($check_stmt) > 0) {
             $_SESSION['error'] = "Email already in use.";
+            mysqli_stmt_close($check_stmt);
         } else {
+            mysqli_stmt_close($check_stmt);
             // Hash password
             $hashed_password = password_hash($password, PASSWORD_DEFAULT);
             
             // Insert new user
-            $insert_query = "INSERT INTO users (name, email, password, household_size) VALUES ($1, $2, $3, $4) RETURNING id";
-            $insert_result = pg_query_params($conn, $insert_query, [$name, $email, $hashed_password, $household_size]);
+            $insert_query = "INSERT INTO users (name, email, password, household_size) VALUES (?, ?, ?, ?)";
+            $insert_stmt = mysqli_prepare($conn, $insert_query);
+            mysqli_stmt_bind_param($insert_stmt, "sssi", $name, $email, $hashed_password, $household_size);
+            $insert_result = mysqli_stmt_execute($insert_stmt);
             
             if ($insert_result) {
-                $user = pg_fetch_assoc($insert_result);
-                $_SESSION['user_id'] = $user['id'];
+                $user_id = mysqli_insert_id($conn);
+                $_SESSION['user_id'] = $user_id;
                 $_SESSION['user_name'] = $name;
                 
                 $_SESSION['success'] = "Registration successful!";
+                mysqli_stmt_close($insert_stmt);
                 header("Location: " . BASE_URL . "/views/dashboard.php");
                 exit();
             } else {
                 $_SESSION['error'] = "Registration failed. Please try again.";
+                mysqli_stmt_close($insert_stmt);
             }
         }
     }

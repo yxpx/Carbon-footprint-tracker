@@ -5,7 +5,7 @@ require_once("config.php");
 $tables = [
     // Users table
     "CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
+        id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(100) NOT NULL,
         email VARCHAR(100) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
@@ -15,7 +15,7 @@ $tables = [
     
     // Appliances table
     "CREATE TABLE IF NOT EXISTS appliances (
-        id SERIAL PRIMARY KEY,
+        id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(100) NOT NULL,
         power_rating INT NOT NULL, -- in watts
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -23,27 +23,30 @@ $tables = [
     
     // User appliances table
     "CREATE TABLE IF NOT EXISTS user_appliances (
-        id SERIAL PRIMARY KEY,
-        user_id INT REFERENCES users(id),
-        appliance_id INT REFERENCES appliances(id),
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT,
+        appliance_id INT,
         usage_hours FLOAT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(user_id, appliance_id)
+        UNIQUE(user_id, appliance_id),
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (appliance_id) REFERENCES appliances(id)
     )",
     
     // Energy usage table
     "CREATE TABLE IF NOT EXISTS energy_usage (
-        id SERIAL PRIMARY KEY,
-        user_id INT REFERENCES users(id),
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT,
         date DATE NOT NULL,
         kwh_consumed FLOAT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(user_id, date)
+        UNIQUE(user_id, date),
+        FOREIGN KEY (user_id) REFERENCES users(id)
     )",
     
     // Transport modes table
     "CREATE TABLE IF NOT EXISTS transport_modes (
-        id SERIAL PRIMARY KEY,
+        id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(100) NOT NULL,
         carbon_emission FLOAT NOT NULL, -- kg CO2 per km
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -51,20 +54,23 @@ $tables = [
     
     // User transport table
     "CREATE TABLE IF NOT EXISTS user_transport (
-        id SERIAL PRIMARY KEY,
-        user_id INT REFERENCES users(id),
-        transport_id INT REFERENCES transport_modes(id),
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT,
+        transport_id INT,
         distance_km FLOAT NOT NULL,
+        date DATE NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(user_id, transport_id)
+        UNIQUE(user_id, transport_id, date),
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (transport_id) REFERENCES transport_modes(id)
     )"
 ];
 
 // Execute table creation queries
 foreach ($tables as $query) {
-    $result = pg_query($conn, $query);
+    $result = mysqli_query($conn, $query);
     if (!$result) {
-        echo "Error creating table: " . pg_last_error($conn) . "<br>";
+        echo "Error creating table: " . mysqli_error($conn) . "<br>";
     }
 }
 
@@ -88,17 +94,24 @@ $appliances = [
 ];
 
 foreach ($appliances as $appliance) {
-    $check_query = "SELECT id FROM appliances WHERE name = $1";
-    $check_result = pg_query_params($conn, $check_query, [$appliance[0]]);
+    $check_query = "SELECT id FROM appliances WHERE name = ?";
+    $stmt = mysqli_prepare($conn, $check_query);
+    mysqli_stmt_bind_param($stmt, "s", $appliance[0]);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_store_result($stmt);
     
-    if (pg_num_rows($check_result) == 0) {
-        $insert_query = "INSERT INTO appliances (name, power_rating) VALUES ($1, $2)";
-        $insert_result = pg_query_params($conn, $insert_query, [$appliance[0], $appliance[1]]);
+    if (mysqli_stmt_num_rows($stmt) == 0) {
+        $insert_query = "INSERT INTO appliances (name, power_rating) VALUES (?, ?)";
+        $insert_stmt = mysqli_prepare($conn, $insert_query);
+        mysqli_stmt_bind_param($insert_stmt, "si", $appliance[0], $appliance[1]);
+        $insert_result = mysqli_stmt_execute($insert_stmt);
         
         if (!$insert_result) {
-            echo "Error inserting appliance: " . pg_last_error($conn) . "<br>";
+            echo "Error inserting appliance: " . mysqli_error($conn) . "<br>";
         }
+        mysqli_stmt_close($insert_stmt);
     }
+    mysqli_stmt_close($stmt);
 }
 
 // Insert sample data for transport modes
@@ -115,17 +128,24 @@ $transport_modes = [
 ];
 
 foreach ($transport_modes as $mode) {
-    $check_query = "SELECT id FROM transport_modes WHERE name = $1";
-    $check_result = pg_query_params($conn, $check_query, [$mode[0]]);
+    $check_query = "SELECT id FROM transport_modes WHERE name = ?";
+    $stmt = mysqli_prepare($conn, $check_query);
+    mysqli_stmt_bind_param($stmt, "s", $mode[0]);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_store_result($stmt);
     
-    if (pg_num_rows($check_result) == 0) {
-        $insert_query = "INSERT INTO transport_modes (name, carbon_emission) VALUES ($1, $2)";
-        $insert_result = pg_query_params($conn, $insert_query, [$mode[0], $mode[1]]);
+    if (mysqli_stmt_num_rows($stmt) == 0) {
+        $insert_query = "INSERT INTO transport_modes (name, carbon_emission) VALUES (?, ?)";
+        $insert_stmt = mysqli_prepare($conn, $insert_query);
+        mysqli_stmt_bind_param($insert_stmt, "sd", $mode[0], $mode[1]);
+        $insert_result = mysqli_stmt_execute($insert_stmt);
         
         if (!$insert_result) {
-            echo "Error inserting transport mode: " . pg_last_error($conn) . "<br>";
+            echo "Error inserting transport mode: " . mysqli_error($conn) . "<br>";
         }
+        mysqli_stmt_close($insert_stmt);
     }
+    mysqli_stmt_close($stmt);
 }
 
 echo "Database setup completed successfully!";

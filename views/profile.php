@@ -12,8 +12,12 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = $_SESSION['user_id'];
 
 // Fetch user data
-$result = pg_query_params($conn, "SELECT name, email, household_size FROM users WHERE id = $1", [$user_id]);
-$user = pg_fetch_assoc($result);
+$stmt = mysqli_prepare($conn, "SELECT name, email, household_size FROM users WHERE id = ?");
+mysqli_stmt_bind_param($stmt, "i", $user_id);
+mysqli_stmt_execute($stmt);
+$result = mysqli_stmt_get_result($stmt);
+$user = mysqli_fetch_assoc($result);
+mysqli_stmt_close($stmt);
 
 // Handle form submission
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
@@ -27,19 +31,30 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     // Update basic info
     if (!empty($name) && !empty($email) && !empty($household_size)) {
         // Check if email is already in use by another user
-        $email_check = pg_query_params($conn, "SELECT id FROM users WHERE email = $1 AND id != $2", [$email, $user_id]);
+        $email_check_stmt = mysqli_prepare($conn, "SELECT id FROM users WHERE email = ? AND id != ?");
+        mysqli_stmt_bind_param($email_check_stmt, "si", $email, $user_id);
+        mysqli_stmt_execute($email_check_stmt);
+        mysqli_stmt_store_result($email_check_stmt);
         
-        if (pg_num_rows($email_check) > 0) {
+        if (mysqli_stmt_num_rows($email_check_stmt) > 0) {
             $_SESSION['error'] = "Email is already in use by another account.";
+            mysqli_stmt_close($email_check_stmt);
         } else {
-            $update_query = "UPDATE users SET name = $1, email = $2, household_size = $3 WHERE id = $4";
-            $update_result = pg_query_params($conn, $update_query, [$name, $email, $household_size, $user_id]);
+            mysqli_stmt_close($email_check_stmt);
+            $update_stmt = mysqli_prepare($conn, "UPDATE users SET name = ?, email = ?, household_size = ? WHERE id = ?");
+            mysqli_stmt_bind_param($update_stmt, "ssii", $name, $email, $household_size, $user_id);
+            $update_result = mysqli_stmt_execute($update_stmt);
+            mysqli_stmt_close($update_stmt);
             
             if ($update_result) {
                 $_SESSION['success'] = "Profile updated successfully!";
                 // Refresh user data
-                $result = pg_query_params($conn, "SELECT name, email, household_size FROM users WHERE id = $1", [$user_id]);
-                $user = pg_fetch_assoc($result);
+                $refresh_stmt = mysqli_prepare($conn, "SELECT name, email, household_size FROM users WHERE id = ?");
+                mysqli_stmt_bind_param($refresh_stmt, "i", $user_id);
+                mysqli_stmt_execute($refresh_stmt);
+                $refresh_result = mysqli_stmt_get_result($refresh_stmt);
+                $user = mysqli_fetch_assoc($refresh_result);
+                mysqli_stmt_close($refresh_stmt);
             } else {
                 $_SESSION['error'] = "Error updating profile.";
             }
@@ -52,14 +67,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $_SESSION['error'] = "New passwords do not match.";
         } else {
             // Verify current password
-            $password_query = pg_query_params($conn, "SELECT password FROM users WHERE id = $1", [$user_id]);
-            $password_data = pg_fetch_assoc($password_query);
+            $password_stmt = mysqli_prepare($conn, "SELECT password FROM users WHERE id = ?");
+            mysqli_stmt_bind_param($password_stmt, "i", $user_id);
+            mysqli_stmt_execute($password_stmt);
+            $password_result = mysqli_stmt_get_result($password_stmt);
+            $password_data = mysqli_fetch_assoc($password_result);
+            mysqli_stmt_close($password_stmt);
             
             if (password_verify($current_password, $password_data['password'])) {
                 $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
-                $password_update = pg_query_params($conn, "UPDATE users SET password = $1 WHERE id = $2", [$hashed_password, $user_id]);
+                $password_update_stmt = mysqli_prepare($conn, "UPDATE users SET password = ? WHERE id = ?");
+                mysqli_stmt_bind_param($password_update_stmt, "si", $hashed_password, $user_id);
+                $password_update_result = mysqli_stmt_execute($password_update_stmt);
+                mysqli_stmt_close($password_update_stmt);
                 
-                if ($password_update) {
+                if ($password_update_result) {
                     $_SESSION['success'] = "Password updated successfully!";
                 } else {
                     $_SESSION['error'] = "Error updating password.";

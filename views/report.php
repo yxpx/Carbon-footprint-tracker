@@ -12,8 +12,12 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = $_SESSION['user_id'];
 
 // Get user details
-$user_query = pg_query_params($conn, "SELECT name, email, household_size FROM users WHERE id = $1", [$user_id]);
-$user = pg_fetch_assoc($user_query);
+$user_stmt = mysqli_prepare($conn, "SELECT name, email, household_size FROM users WHERE id = ?");
+mysqli_stmt_bind_param($user_stmt, "i", $user_id);
+mysqli_stmt_execute($user_stmt);
+$user_result = mysqli_stmt_get_result($user_stmt);
+$user = mysqli_fetch_assoc($user_result);
+mysqli_stmt_close($user_stmt);
 $household_size = max(1, intval($user['household_size'] ?? 1));
 
 // Set default date range (last 30 days)
@@ -27,35 +31,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['start_date']) && isse
 }
 
 // Fetch energy usage data
-$energy_query = pg_query_params($conn, 
+$energy_stmt = mysqli_prepare($conn, 
     "SELECT date, SUM(kwh_consumed) as total_energy 
      FROM energy_usage 
-     WHERE user_id = $1 AND date BETWEEN $2 AND $3 
+     WHERE user_id = ? AND date BETWEEN ? AND ? 
      GROUP BY date 
-     ORDER BY date DESC", 
-    [$user_id, $start_date, $end_date]
+     ORDER BY date DESC"
 );
+mysqli_stmt_bind_param($energy_stmt, "iss", $user_id, $start_date, $end_date);
+mysqli_stmt_execute($energy_stmt);
+$energy_result = mysqli_stmt_get_result($energy_stmt);
+$energy_data = [];
+while ($row = mysqli_fetch_assoc($energy_result)) {
+    $energy_data[] = $row;
+}
+mysqli_stmt_close($energy_stmt);
 
-$energy_data = pg_fetch_all($energy_query) ?: [];
 $total_energy = 0;
 foreach ($energy_data as $day) {
     $total_energy += $day['total_energy'];
 }
 
 // Fetch carbon footprint from energy usage
-$carbon_energy_query = pg_query_params($conn, 
+$carbon_energy_stmt = mysqli_prepare($conn, 
     "SELECT SUM(kwh_consumed * 0.92) AS total_carbon 
      FROM energy_usage 
-     WHERE user_id = $1 AND date BETWEEN $2 AND $3", 
-    [$user_id, $start_date, $end_date] // 0.92 kg CO2 per kWh
+     WHERE user_id = ? AND date BETWEEN ? AND ?"
 );
-$carbon_energy = pg_fetch_assoc($carbon_energy_query)['total_carbon'] ?? 0;
+mysqli_stmt_bind_param($carbon_energy_stmt, "iss", $user_id, $start_date, $end_date);
+mysqli_stmt_execute($carbon_energy_stmt);
+$carbon_energy_result = mysqli_stmt_get_result($carbon_energy_stmt);
+$carbon_energy_row = mysqli_fetch_assoc($carbon_energy_result);
+$carbon_energy = $carbon_energy_row['total_carbon'] ?? 0;
+mysqli_stmt_close($carbon_energy_stmt);
 
-// First, let's check the structure of the energy_usage table
-$table_check = pg_query($conn, "SELECT column_name FROM information_schema.columns WHERE table_name = 'energy_usage'");
+// Check the structure of the energy_usage table
+$table_check = mysqli_query($conn, "SHOW COLUMNS FROM energy_usage");
 $columns = [];
-while ($row = pg_fetch_assoc($table_check)) {
-    $columns[] = $row['column_name'];
+while ($row = mysqli_fetch_assoc($table_check)) {
+    $columns[] = $row['Field'];
 }
 
 // Initialize energy breakdown
@@ -64,71 +78,89 @@ $energy_breakdown = [];
 // Determine if we have an appliance_id or appliance_name column
 if (in_array('appliance_id', $columns)) {
     // If we have appliance_id, join with appliances table
-    $energy_breakdown_query = pg_query_params($conn, 
+    $energy_breakdown_stmt = mysqli_prepare($conn, 
         "SELECT a.name, SUM(e.kwh_consumed) as total_energy
          FROM energy_usage e
          JOIN appliances a ON e.appliance_id = a.id
-         WHERE e.user_id = $1 AND e.date BETWEEN $2 AND $3
+         WHERE e.user_id = ? AND e.date BETWEEN ? AND ?
          GROUP BY a.name
-         ORDER BY total_energy DESC", 
-        [$user_id, $start_date, $end_date]
+         ORDER BY total_energy DESC"
     );
+    mysqli_stmt_bind_param($energy_breakdown_stmt, "iss", $user_id, $start_date, $end_date);
+    mysqli_stmt_execute($energy_breakdown_stmt);
+    $energy_breakdown_result = mysqli_stmt_get_result($energy_breakdown_stmt);
     
-    if ($energy_breakdown_query) {
-        $energy_breakdown = pg_fetch_all($energy_breakdown_query) ?: [];
+    if ($energy_breakdown_result) {
+        while ($row = mysqli_fetch_assoc($energy_breakdown_result)) {
+            $energy_breakdown[] = $row;
+        }
     }
+    mysqli_stmt_close($energy_breakdown_stmt);
 } else {
     // If we don't have specific appliance columns, just group by date
-    $energy_breakdown_query = pg_query_params($conn, 
+    $energy_breakdown_stmt = mysqli_prepare($conn, 
         "SELECT date, SUM(kwh_consumed) as total_energy
          FROM energy_usage
-         WHERE user_id = $1 AND date BETWEEN $2 AND $3
+         WHERE user_id = ? AND date BETWEEN ? AND ?
          GROUP BY date
-         ORDER BY date DESC", 
-        [$user_id, $start_date, $end_date]
+         ORDER BY date DESC"
     );
+    mysqli_stmt_bind_param($energy_breakdown_stmt, "iss", $user_id, $start_date, $end_date);
+    mysqli_stmt_execute($energy_breakdown_stmt);
+    $energy_breakdown_result = mysqli_stmt_get_result($energy_breakdown_stmt);
     
-    if ($energy_breakdown_query) {
-        $energy_breakdown = pg_fetch_all($energy_breakdown_query) ?: [];
+    if ($energy_breakdown_result) {
+        while ($row = mysqli_fetch_assoc($energy_breakdown_result)) {
+            $energy_breakdown[] = $row;
+        }
         // Transform the data to show dates as "appliance names"
         foreach ($energy_breakdown as &$item) {
             $item['name'] = 'Energy on ' . date('M j, Y', strtotime($item['date']));
         }
     }
+    mysqli_stmt_close($energy_breakdown_stmt);
 }
 
 $carbon_transport = 0;
 $transport_breakdown = [];
 
 // Fetch carbon footprint from transport usage
-$carbon_transport_query = pg_query_params($conn, 
+$carbon_transport_stmt = mysqli_prepare($conn, 
     "SELECT SUM(tm.carbon_emission * t.distance_km) AS transport_carbon 
      FROM user_transport t 
      JOIN transport_modes tm ON t.transport_id = tm.id 
-     WHERE t.user_id = $1 AND t.date BETWEEN $2 AND $3", 
-    [$user_id, $start_date, $end_date]
+     WHERE t.user_id = ? AND t.date BETWEEN ? AND ?"
 );
+mysqli_stmt_bind_param($carbon_transport_stmt, "iss", $user_id, $start_date, $end_date);
+mysqli_stmt_execute($carbon_transport_stmt);
+$carbon_transport_result = mysqli_stmt_get_result($carbon_transport_stmt);
 
-if ($carbon_transport_query) {
-    $result = pg_fetch_assoc($carbon_transport_query);
+if ($carbon_transport_result) {
+    $result = mysqli_fetch_assoc($carbon_transport_result);
     $carbon_transport = $result['transport_carbon'] ?? 0;
 }
+mysqli_stmt_close($carbon_transport_stmt);
 
 // Fetch transport breakdown
-$transport_breakdown_query = pg_query_params($conn, 
+$transport_breakdown_stmt = mysqli_prepare($conn, 
     "SELECT tm.name, SUM(t.distance_km) as total_distance, 
      SUM(tm.carbon_emission * t.distance_km) as carbon_emission
      FROM user_transport t
      JOIN transport_modes tm ON t.transport_id = tm.id
-     WHERE t.user_id = $1 AND t.date BETWEEN $2 AND $3
+     WHERE t.user_id = ? AND t.date BETWEEN ? AND ?
      GROUP BY tm.name
-     ORDER BY carbon_emission DESC", 
-    [$user_id, $start_date, $end_date]
+     ORDER BY carbon_emission DESC"
 );
+mysqli_stmt_bind_param($transport_breakdown_stmt, "iss", $user_id, $start_date, $end_date);
+mysqli_stmt_execute($transport_breakdown_stmt);
+$transport_breakdown_result = mysqli_stmt_get_result($transport_breakdown_stmt);
 
-if ($transport_breakdown_query) {
-    $transport_breakdown = pg_fetch_all($transport_breakdown_query) ?: [];
+if ($transport_breakdown_result) {
+    while ($row = mysqli_fetch_assoc($transport_breakdown_result)) {
+        $transport_breakdown[] = $row;
+    }
 }
+mysqli_stmt_close($transport_breakdown_stmt);
 
 $total_carbon = $carbon_energy + $carbon_transport;
 
@@ -163,55 +195,73 @@ $recommendations[] = "Unplug chargers and appliances when not in use to eliminat
 $recommendations[] = "Consider renewable energy options for your home if available in your area.";
 
 // Check if user_appliances table exists
-$table_exists_query = pg_query($conn, "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'user_appliances')");
-$table_exists = pg_fetch_result($table_exists_query, 0, 0);
+$table_exists_query = mysqli_query($conn, "SHOW TABLES LIKE 'user_appliances'");
+$table_exists = mysqli_num_rows($table_exists_query) > 0;
 
 $appliance_history = [];
-if ($table_exists === 't') {
+if ($table_exists) {
     // Check the structure of user_appliances table
     $appliance_columns = [];
-    $appliance_columns_query = pg_query($conn, "SELECT column_name FROM information_schema.columns WHERE table_name = 'user_appliances'");
-    while ($row = pg_fetch_assoc($appliance_columns_query)) {
-        $appliance_columns[] = $row['column_name'];
+    $appliance_columns_query = mysqli_query($conn, "SHOW COLUMNS FROM user_appliances");
+    while ($row = mysqli_fetch_assoc($appliance_columns_query)) {
+        $appliance_columns[] = $row['Field'];
     }
     
     // Fetch appliance history based on available columns
     if (in_array('appliance_id', $appliance_columns) && in_array('usage_hours', $appliance_columns)) {
-        $appliance_history_query = pg_query_params($conn,
+        $appliance_history_stmt = mysqli_prepare($conn,
             "SELECT a.name, ua.usage_hours, ua.created_at
              FROM user_appliances ua
              JOIN appliances a ON ua.appliance_id = a.id
-             WHERE ua.user_id = $1
-             ORDER BY ua.created_at DESC",
-            [$user_id]
+             WHERE ua.user_id = ?
+             ORDER BY ua.created_at DESC"
         );
-        if ($appliance_history_query) {
-            $appliance_history = pg_fetch_all($appliance_history_query) ?: [];
+        mysqli_stmt_bind_param($appliance_history_stmt, "i", $user_id);
+        mysqli_stmt_execute($appliance_history_stmt);
+        $appliance_history_result = mysqli_stmt_get_result($appliance_history_stmt);
+        
+        if ($appliance_history_result) {
+            while ($row = mysqli_fetch_assoc($appliance_history_result)) {
+                $appliance_history[] = $row;
+            }
         }
+        mysqli_stmt_close($appliance_history_stmt);
     } else if (in_array('name', $appliance_columns) && in_array('usage_hours', $appliance_columns)) {
-        $appliance_history_query = pg_query_params($conn,
+        $appliance_history_stmt = mysqli_prepare($conn,
             "SELECT name, usage_hours, created_at
              FROM user_appliances
-             WHERE user_id = $1
-             ORDER BY created_at DESC",
-            [$user_id]
+             WHERE user_id = ?
+             ORDER BY created_at DESC"
         );
-        if ($appliance_history_query) {
-            $appliance_history = pg_fetch_all($appliance_history_query) ?: [];
+        mysqli_stmt_bind_param($appliance_history_stmt, "i", $user_id);
+        mysqli_stmt_execute($appliance_history_stmt);
+        $appliance_history_result = mysqli_stmt_get_result($appliance_history_stmt);
+        
+        if ($appliance_history_result) {
+            while ($row = mysqli_fetch_assoc($appliance_history_result)) {
+                $appliance_history[] = $row;
+            }
         }
+        mysqli_stmt_close($appliance_history_stmt);
     }
 }
 
 // Fetch transport history
-$transport_history_query = pg_query_params($conn,
+$transport_history_stmt = mysqli_prepare($conn,
     "SELECT tm.name, t.distance_km, t.date
      FROM user_transport t
      JOIN transport_modes tm ON t.transport_id = tm.id
-     WHERE t.user_id = $1
-     ORDER BY t.date DESC",
-    [$user_id]
+     WHERE t.user_id = ?
+     ORDER BY t.date DESC"
 );
-$transport_history = pg_fetch_all($transport_history_query) ?: [];
+mysqli_stmt_bind_param($transport_history_stmt, "i", $user_id);
+mysqli_stmt_execute($transport_history_stmt);
+$transport_history_result = mysqli_stmt_get_result($transport_history_stmt);
+$transport_history = [];
+while ($row = mysqli_fetch_assoc($transport_history_result)) {
+    $transport_history[] = $row;
+}
+mysqli_stmt_close($transport_history_stmt);
 ?>
 
 <main class="report-page">

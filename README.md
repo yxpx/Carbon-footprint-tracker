@@ -15,7 +15,7 @@ A personal energy and transportation monitoring application that helps users tra
 ## Technologies Used
 
 - PHP 7.4+
-- PostgreSQL Database
+- MySQL Database
 - HTML5, CSS3, JavaScript
 - Chart.js for data visualization
 - Responsive design for mobile and desktop
@@ -25,21 +25,22 @@ A personal energy and transportation monitoring application that helps users tra
 ### Prerequisites
 
 - XAMPP (with PHP 7.4 or higher)
-- PostgreSQL database
+- MySQL database (included with XAMPP)
 - Web browser
 
 ### Setup Instructions
 
-1.  Clone the repository.
-2.  Set up the PostgreSQL database:
-    *   Start PostgreSQL server.
-    *   Create a new database named `carbon_footprint`.
-    *   Run the `db/setup.php` script to create the database tables.
-3.  Configure the application:
-    *   Copy `config.php` and set database connection details.
-4.  Set up XAMPP (move project to `htdocs`, start Apache).
-5.  Access the application at `http://localhost/carbon-footprint-tracker`.
+1. Clone the repository to your XAMPP htdocs folder.
 
+2. Set up the MySQL database:
+* Navigate to http://localhost/your-folder-name/db/create_database.php to create the database
+* Run the setup script by visiting http://localhost/your-folder-name/db/setup.php to create tables and add sample data
+
+3. Access the application:
+* Visit http://localhost/your-folder-name/index.php in your web browser
+* Register a new account or log in with existing credentials
+
+Note: Replace "your-folder-name" with whatever directory name you used when installing the application.
 
 ## Usage
 
@@ -47,8 +48,8 @@ A personal energy and transportation monitoring application that helps users tra
 2. **Dashboard**: View your carbon footprint summary and quick recommendations
 3. **Log Energy**: Record your daily energy consumption
 4. **Log Transport**: Track your transportation methods and distances
-5. **View Report**: Generate detailed reports and download them as text files
-6. **Get Recommendations**: Receive personalized suggestions to reduce your carbon footprint
+5. **View Report**: Generate detailed reports and get personalized recommendations
+6. **Reduce Footprint**: Follow suggestions to decrease your carbon emissions
 
 ## Database Structure
 
@@ -60,23 +61,14 @@ The application uses the following main tables:
 - `appliances`: Lists common household appliances and their power ratings
 - `user_appliances`: Tracks which appliances users have and their usage
 
-## Contributing
+## Project Structure
 
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+- `/api` - Backend API endpoints for data processing
+- `/db` - Database configuration and setup files
+- `/includes` - Reusable PHP components like header and footer
+- `/views` - Frontend page templates
 
 ## Acknowledgements
 
 - [Chart.js](https://www.chartjs.org/) for data visualization
 - [XAMPP](https://www.apachefriends.org/) for the local development environment
-
-

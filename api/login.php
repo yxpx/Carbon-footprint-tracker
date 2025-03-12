@@ -7,10 +7,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $password = trim($_POST["password"]);
 
     // Fetch user data
-    $query = "SELECT id, name, password FROM users WHERE email = $1";
-    $result = pg_query_params($conn, $query, [$email]);
+    $query = "SELECT id, name, password FROM users WHERE email = ?";
+    $stmt = mysqli_prepare($conn, $query);
+    mysqli_stmt_bind_param($stmt, "s", $email);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
 
-    if ($row = pg_fetch_assoc($result)) {
+    if ($row = mysqli_fetch_assoc($result)) {
         // Verify password
         if (password_verify($password, $row["password"])) {
             $_SESSION["user_id"] = $row["id"];
@@ -23,5 +26,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     } else {
         echo "User not found!";
     }
+    mysqli_stmt_close($stmt);
 }
 ?>

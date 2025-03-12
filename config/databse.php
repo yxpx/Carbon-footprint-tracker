@@ -1,12 +1,15 @@
 <?php
 $host = "localhost";
 $dbname = "energy_tracker";
-$user = "postgres";
-$password = "password";
+$user = "root";
+$password = "";
 
-$conn = pg_connect("host=$host dbname=$dbname user=$user password=$password");
+$conn = mysqli_connect($host, $user, $password, $dbname);
 
 if (!$conn) {
-    die("Database connection failed: " . pg_last_error());
+    die("Database connection failed: " . mysqli_connect_error());
 }
+
+// Set charset to utf8
+mysqli_set_charset($conn, "utf8");
 ?>

@@ -18,11 +18,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $_SESSION['error'] = "Please fill in all fields.";
     } else {
         // Check if user exists
-        $query = "SELECT id, name, password FROM users WHERE email = $1";
-        $result = pg_query_params($conn, $query, [$email]);
+        $query = "SELECT id, name, password FROM users WHERE email = ?";
+        $stmt = mysqli_prepare($conn, $query);
+        mysqli_stmt_bind_param($stmt, "s", $email);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
         
-        if (pg_num_rows($result) > 0) {
-            $user = pg_fetch_assoc($result);
+        if (mysqli_num_rows($result) > 0) {
+            $user = mysqli_fetch_assoc($result);
             
             // Verify password
             if (password_verify($password, $user['password'])) {
@@ -37,6 +40,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         } else {
             $_SESSION['error'] = "User not found.";
         }
+        mysqli_stmt_close($stmt);
     }
 }
 ?>

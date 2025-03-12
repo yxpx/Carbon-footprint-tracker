@@ -77,7 +77,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Acknowledgements
 
 - [Chart.js](https://www.chartjs.org/) for data visualization
-- [Font Awesome](https://fontawesome.com/) for icons
 - [XAMPP](https://www.apachefriends.org/) for the local development environment
 
 

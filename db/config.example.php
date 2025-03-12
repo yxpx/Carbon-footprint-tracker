@@ -3,7 +3,7 @@
 $host = "localhost";
 $dbname = "energy_tracker";
 $user = "postgres";
-$password = "410210"; // Enter your password 
+$password = "password"; // Enter your password 
 
 // Establish connection
 $conn_string = "host=$host dbname=$dbname user=$user password=$password";

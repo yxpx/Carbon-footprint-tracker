@@ -40,7 +40,7 @@ A personal energy and transportation monitoring application that helps users tra
 * Visit http://localhost/your-folder-name/index.php in your web browser
 * Register a new account or log in with existing credentials
 
-Note: Replace "your-folder-name" with whatever directory name you used when installing the application.
+Note: Replace "your-folder-name" with whatever directory name you used when installing the application. Also, substitute "/mini-project" with your folder name in the `header.php` and `logout.php` files. For example, change `header("Location: /mini-project/index.php");` to `header("Location: /your-folder-name/index.php");`
 
 ## Usage
 

@@ -1,6 +1,6 @@
 <?php
 session_start();
 session_destroy();
-header("Location: /mini-project/index.php");
+header("Location: /Carbon-footprint-tracker/index.php");
 exit();
 ?>

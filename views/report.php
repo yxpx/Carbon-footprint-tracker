@@ -199,52 +199,32 @@ $table_exists_query = mysqli_query($conn, "SHOW TABLES LIKE 'user_appliances'");
 $table_exists = mysqli_num_rows($table_exists_query) > 0;
 
 $appliance_history = [];
-if ($table_exists) {
-    // Check the structure of user_appliances table
-    $appliance_columns = [];
-    $appliance_columns_query = mysqli_query($conn, "SHOW COLUMNS FROM user_appliances");
-    while ($row = mysqli_fetch_assoc($appliance_columns_query)) {
-        $appliance_columns[] = $row['Field'];
-    }
-    
-    // Fetch appliance history based on available columns
-    if (in_array('appliance_id', $appliance_columns) && in_array('usage_hours', $appliance_columns)) {
-        $appliance_history_stmt = mysqli_prepare($conn,
-            "SELECT a.name, ua.usage_hours, ua.created_at
-             FROM user_appliances ua
-             JOIN appliances a ON ua.appliance_id = a.id
-             WHERE ua.user_id = ?
-             ORDER BY ua.created_at DESC"
-        );
-        mysqli_stmt_bind_param($appliance_history_stmt, "i", $user_id);
-        mysqli_stmt_execute($appliance_history_stmt);
-        $appliance_history_result = mysqli_stmt_get_result($appliance_history_stmt);
-        
-        if ($appliance_history_result) {
-            while ($row = mysqli_fetch_assoc($appliance_history_result)) {
-                $appliance_history[] = $row;
-            }
-        }
-        mysqli_stmt_close($appliance_history_stmt);
-    } else if (in_array('name', $appliance_columns) && in_array('usage_hours', $appliance_columns)) {
-        $appliance_history_stmt = mysqli_prepare($conn,
-            "SELECT name, usage_hours, created_at
-             FROM user_appliances
-             WHERE user_id = ?
-             ORDER BY created_at DESC"
-        );
-        mysqli_stmt_bind_param($appliance_history_stmt, "i", $user_id);
-        mysqli_stmt_execute($appliance_history_stmt);
-        $appliance_history_result = mysqli_stmt_get_result($appliance_history_stmt);
-        
-        if ($appliance_history_result) {
-            while ($row = mysqli_fetch_assoc($appliance_history_result)) {
-                $appliance_history[] = $row;
-            }
-        }
-        mysqli_stmt_close($appliance_history_stmt);
+$appliance_history_stmt = mysqli_prepare($conn,
+    "SELECT a.name, ua.usage_hours, ua.created_at AS date
+     FROM user_appliances ua
+     JOIN appliances a ON ua.appliance_id = a.id
+     WHERE ua.user_id = ?
+     ORDER BY ua.created_at DESC"
+);
+mysqli_stmt_bind_param($appliance_history_stmt, "i", $user_id);
+mysqli_stmt_execute($appliance_history_stmt);
+$appliance_history_result = mysqli_stmt_get_result($appliance_history_stmt);
+
+if ($appliance_history_result) {
+    while ($row = mysqli_fetch_assoc($appliance_history_result)) {
+        $appliance_history[] = $row;
     }
 }
+mysqli_stmt_close($appliance_history_stmt);
+
+// Fetch transport history
+$transport_history_stmt = mysqli_prepare($conn,
+    "SELECT tm.name, t.distance_km, t.date
+     FROM user_transport t
+     JOIN transport_modes tm ON t.transport_id = tm.id
+     WHERE t.user_id = ?
+     ORDER BY t.date DESC"
+);
 
 // Fetch transport history
 $transport_history_stmt = mysqli_prepare($conn,
@@ -341,60 +321,7 @@ mysqli_stmt_close($transport_history_stmt);
                 </div>
             </div>
         </div>
-        
-        <div class="report-details">
-            <div class="report-section card">
-                <h2>Energy Breakdown</h2>
-                <?php if (empty($energy_breakdown)): ?>
-                    <p>No energy usage data available for the selected period.</p>
-                <?php else: ?>
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Date/Appliance</th>
-                                <th>Energy Usage (kWh)</th>
-                                <th>Percentage</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($energy_breakdown as $item): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars($item['name'] ?? $item['date']); ?></td>
-                                    <td><?php echo number_format($item['total_energy'], 1); ?></td>
-                                    <td><?php echo number_format(($item['total_energy'] / $total_energy) * 100, 1); ?>%</td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                <?php endif; ?>
-            </div>
-            
-            <div class="report-section card">
-                <h2>Transport Breakdown</h2>
-                <?php if (empty($transport_breakdown)): ?>
-                    <p>No transport data available for the selected period.</p>
-                <?php else: ?>
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Transport Mode</th>
-                                <th>Distance (km)</th>
-                                <th>Carbon Emission (kg CO₂)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($transport_breakdown as $item): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars($item['name']); ?></td>
-                                    <td><?php echo number_format($item['total_distance'], 1); ?></td>
-                                    <td><?php echo number_format($item['carbon_emission'], 1); ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                <?php endif; ?>
-            </div>
-            
+                    
             <div class="report-section card">
                 <h2>Recommendations</h2>
                 <ul class="recommendations-list">
@@ -412,22 +339,21 @@ mysqli_stmt_close($transport_history_stmt);
                         <tr>
                             <th>Appliance</th>
                             <th>Usage Hours</th>
-                            <th>Added On</th>
+                            <th>Date Added</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($appliance_history as $item): ?>
                             <tr>
                                 <td><?php echo htmlspecialchars($item['name']); ?></td>
-                                <td><?php echo $item['usage_hours']; ?> hours/day</td>
-                                <td><?php echo date('M j, Y', strtotime($item['created_at'])); ?></td>
+                                <td><?php echo $item['usage_hours']; ?></td>
+                                <td><?php echo date('M j, Y', strtotime($item['date'])); ?></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
             </div>
-            <?php endif; ?>
-            
+            <?php endif; ?>            
             <div class="report-section card">
                 <h2>Transport History</h2>
                 <?php if (empty($transport_history)): ?>

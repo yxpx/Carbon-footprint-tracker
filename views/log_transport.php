@@ -66,7 +66,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             exit();
         }
         
-        mysqli_stmt_bind_param($insert_stmt, "iisd", $user_id, $transport_id, $distance_km, $log_date);
+        mysqli_stmt_bind_param($insert_stmt, "iids", $user_id, $transport_id, $distance_km, $log_date);
         $result = mysqli_stmt_execute($insert_stmt);
         mysqli_stmt_close($insert_stmt);
     }

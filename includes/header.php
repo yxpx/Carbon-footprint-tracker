@@ -1,7 +1,7 @@
 <?php
 session_start();
 define("SITE_NAME", "Household Energy Tracker");
-define("BASE_URL", "/mini-project");
+define("BASE_URL", "/Carbon-footprint-tracker");
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -11,12 +11,11 @@ define("BASE_URL", "/mini-project");
     <meta name="color-scheme" content="dark">
     <meta name="theme-color" content="#121212">
     <title>Carbon Footprint Tracker | Personal Energy & Transport Monitor</title>
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/css/styles.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/css/styles.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-</head>
-<body>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"><body>
 <div class="container">
     <?php if (isset($_SESSION['error'])): ?>
         <div class="alert alert-danger">

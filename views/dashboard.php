@@ -374,7 +374,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const carbonChart = new Chart(carbonCtx, {
         type: 'doughnut',
         data: {
-            labels: ['Energy', 'Transport'],
+            labels: ['Appliances', 'Transport'],
             datasets: [{
                 data: [<?php echo $carbon_energy; ?>, <?php echo $carbon_transport; ?>],
                 backgroundColor: [

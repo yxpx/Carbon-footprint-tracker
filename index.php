@@ -26,22 +26,30 @@ require_once(__DIR__ . "/includes/navbar.php");
             <h2>Features</h2>
             <div class="feature-grid">
                 <div class="feature-card">
-                    <div class="feature-icon">📊</div>
+                    <div class="feature-icon">
+                        <i class="bi bi-bar-chart-fill"></i>
+                    </div>
                     <h3>Track Energy Usage</h3>
                     <p>Log your daily energy consumption from various appliances and see your impact over time.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">🚗</div>
+                    <div class="feature-icon">
+                        <i class="bi bi-car-front-fill"></i>
+                    </div>
                     <h3>Monitor Transportation</h3>
                     <p>Record your travel methods and distances to understand your transportation carbon footprint.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">📈</div>
+                    <div class="feature-icon">
+                        <i class="bi bi-graph-up-arrow"></i>
+                    </div>
                     <h3>Visualize Progress</h3>
                     <p>View detailed charts and reports to track your improvement over time.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">💡</div>
+                    <div class="feature-icon">
+                        <i class="bi bi-lightbulb-fill"></i>
+                    </div>
                     <h3>Get Recommendations</h3>
                     <p>Receive personalized suggestions to reduce your carbon footprint based on your habits.</p>
                 </div>
@@ -54,22 +62,22 @@ require_once(__DIR__ . "/includes/navbar.php");
             <h2>How It Works</h2>
             <div class="steps">
                 <div class="step">
-                    <div class="step-number">1</div>
+                    <div class="step-number"><span>1</span></div>
                     <h3>Create an Account</h3>
                     <p>Sign up and set up your household profile to get started.</p>
                 </div>
                 <div class="step">
-                    <div class="step-number">2</div>
+                    <div class="step-number"><span>2</span></div>
                     <h3>Log Your Usage</h3>
                     <p>Record your energy consumption and transportation habits.</p>
                 </div>
                 <div class="step">
-                    <div class="step-number">3</div>
+                    <div class="step-number"><span>3</span></div>
                     <h3>View Your Impact</h3>
                     <p>See your carbon footprint and track changes over time.</p>
                 </div>
                 <div class="step">
-                    <div class="step-number">4</div>
+                    <div class="step-number"><span>4</span></div>
                     <h3>Make Improvements</h3>
                     <p>Follow recommendations to reduce your environmental impact.</p>
                 </div>

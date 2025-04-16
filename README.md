@@ -33,14 +33,12 @@ A personal energy and transportation monitoring application that helps users tra
 1. Clone the repository to your XAMPP htdocs folder.
 
 2. Set up the MySQL database:
-* Navigate to http://localhost/your-folder-name/db/create_database.php to create the database
-* Run the setup script by visiting http://localhost/your-folder-name/db/setup.php to create tables and add sample data
+* Navigate to http://localhost/Carbon-footprint-tracker/db/create_database.php to create the database
+* Run the setup script by visiting http://localhost/Carbon-footprint-tracker/db/setup.php to create tables and add sample data
 
 3. Access the application:
-* Visit http://localhost/your-folder-name/index.php in your web browser
+* Visit http://localhost/Carbon-footprint-tracker/index.php in your web browser
 * Register a new account or log in with existing credentials
-
-Note: Replace "your-folder-name" with whatever directory name you used when installing the application. Also, substitute "/mini-project" with your folder name in the `header.php` and `logout.php` files. For example, change `header("Location: /mini-project/index.php");` to `header("Location: /your-folder-name/index.php");`
 
 ## Usage
 
